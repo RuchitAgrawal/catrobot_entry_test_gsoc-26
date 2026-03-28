@@ -45,12 +45,12 @@ entry_test/
 │       ├── workers/csvParser.worker.js
 │       └── components/
 ├── data/
-│   ├── agro_ecosystem_sample.csv
-│   └── generated_crisis.csv
+│   └── agro_ecosystem_sample.csv
 ├── tests/
 │   └── test_analyzer.py
 ├── pyproject.toml
 ├── .env.example
+├── sample_output.json
 ├── PROMPT.md
 └── README.md
 ```

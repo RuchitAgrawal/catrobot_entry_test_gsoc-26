@@ -1,0 +1,118 @@
+{
+  "scenario": "drought",
+  "mock_mode": true,
+  "narration_output": {
+    "sentence_count": 3,
+    "narration": "The agricultural sensor grid recorded a significant soil moisture decline today, with Zone-A dropping 18.8% and Zone-D dropping 22.4% over a 4.5-hour window, triggering automated drone deployments and irrigation responses across three critical zones. Zone-C showed moderate stress with a 13.1% moisture reduction and partial drone activation, while Zone-B approached the critical threshold at 54.2%. Overall, the ecosystem's automated stabilization protocols are actively engaged across all four zones, and continued monitoring is recommended through the next irrigation cycle.",
+    "anomalies_detected": [
+      "Zone-A moisture dropped below critical threshold (55%): min recorded = 50.6%",
+      "Zone-D moisture dropped below critical threshold (55%): min recorded = 47.8%",
+      "16 total drone deployments across critical zones",
+      "9 irrigation events triggered by automated soil-stress response"
+    ],
+    "confidence": 0.91
+  },
+  "analysis_insights": {
+    "analysis_window_hours": 11.5,
+    "total_events": 96,
+    "zones_analyzed": ["Zone-A", "Zone-B", "Zone-C", "Zone-D"],
+    "overall_moisture_trend": "declining",
+    "total_drone_deployments": 16,
+    "total_irrigation_events": 9,
+    "critical_zones": ["Zone-A", "Zone-D"],
+    "severity_score": 0.63,
+    "tone_register": "advisory",
+    "zone_analyses": [
+      {
+        "zone": "Zone-A",
+        "moisture_start_pct": 72.0,
+        "moisture_end_pct": 53.2,
+        "moisture_delta_pct": -18.8,
+        "moisture_drop_rate_per_hour": -1.635,
+        "min_moisture_pct": 50.6,
+        "max_moisture_pct": 72.0,
+        "drone_deployments": 6,
+        "irrigation_events": 3,
+        "crop_health_mean": 7.42,
+        "crop_health_delta": -0.96,
+        "peak_temperature_celsius": 31.9,
+        "anomaly_flags": [
+          "Moisture fell below critical threshold (55.0%): min recorded = 50.6%",
+          "Drone activity spike: 6 deployments",
+          "Irrigation triggered 3 time(s) in response to moisture stress",
+          "Crop health declined by 1.0 index points"
+        ]
+      },
+      {
+        "zone": "Zone-B",
+        "moisture_start_pct": 68.0,
+        "moisture_end_pct": 59.8,
+        "moisture_delta_pct": -8.2,
+        "moisture_drop_rate_per_hour": -0.713,
+        "min_moisture_pct": 54.2,
+        "max_moisture_pct": 68.0,
+        "drone_deployments": 2,
+        "irrigation_events": 1,
+        "crop_health_mean": 7.71,
+        "crop_health_delta": -0.46,
+        "peak_temperature_celsius": 31.7,
+        "anomaly_flags": [
+          "Irrigation triggered 1 time(s) in response to moisture stress"
+        ]
+      },
+      {
+        "zone": "Zone-C",
+        "moisture_start_pct": 76.5,
+        "moisture_end_pct": 63.4,
+        "moisture_delta_pct": -13.1,
+        "moisture_drop_rate_per_hour": -1.139,
+        "min_moisture_pct": 58.1,
+        "max_moisture_pct": 76.5,
+        "drone_deployments": 4,
+        "irrigation_events": 2,
+        "crop_health_mean": 7.93,
+        "crop_health_delta": -0.46,
+        "peak_temperature_celsius": 31.4,
+        "anomaly_flags": [
+          "Drone activity spike: 4 deployments",
+          "Irrigation triggered 2 time(s) in response to moisture stress",
+          "Crop health declined by 0.5 index points"
+        ]
+      },
+      {
+        "zone": "Zone-D",
+        "moisture_start_pct": 65.0,
+        "moisture_end_pct": 42.6,
+        "moisture_delta_pct": -22.4,
+        "moisture_drop_rate_per_hour": -1.948,
+        "min_moisture_pct": 47.8,
+        "max_moisture_pct": 65.0,
+        "drone_deployments": 4,
+        "irrigation_events": 3,
+        "crop_health_mean": 7.12,
+        "crop_health_delta": -1.15,
+        "peak_temperature_celsius": 32.0,
+        "anomaly_flags": [
+          "Significant moisture drop: 22.4% over 11.5h",
+          "Moisture fell below critical threshold (55.0%): min recorded = 47.8%",
+          "Irrigation triggered 3 time(s) in response to moisture stress",
+          "Crop health declined by 1.2 index points"
+        ]
+      }
+    ],
+    "global_anomalies": [
+      "Critical moisture levels (<55%) detected in: Zone-A, Zone-D",
+      "Automated irrigation triggered 9 time(s) — ecosystem responded to moisture stress"
+    ],
+    "summary_bullets": [
+      "Overall soil moisture trend: DECLINING (mean change: -15.6% over 11.5h)",
+      "Zone-A: moisture 72.0% → 53.2% (-18.8%), crop health mean 7.4/10, peak temp 31.9°C",
+      "Zone-B: moisture 68.0% → 59.8% (-8.2%), crop health mean 7.7/10, peak temp 31.7°C",
+      "Zone-C: moisture 76.5% → 63.4% (-13.1%), crop health mean 7.9/10, peak temp 31.4°C",
+      "Zone-D: moisture 65.0% → 42.6% (-22.4%), crop health mean 7.1/10, peak temp 32.0°C",
+      "CRITICAL: Zones Zone-A, Zone-D dropped below 55.0% moisture",
+      "Total drone deployments: 16 — automated stress-response protocol active",
+      "Irrigation system triggered 9 time(s) — ecosystem attempting to self-stabilize"
+    ]
+  }
+}
