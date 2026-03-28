@@ -34,7 +34,7 @@ from .models import (
     NarrationOutput,
 )
 
-load_dotenv()
+load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -126,7 +126,7 @@ class GeminiClient:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-2.5-flash",
     ) -> None:
         try:
             from google import genai
@@ -143,8 +143,6 @@ class GeminiClient:
 
     def generate(self, prompt: str) -> NarrationOutput:
         """Call Gemini with structured JSON output enforced via response_schema."""
-        import typing
-
         # Build the response schema as a Pydantic model compatible dict
         response_schema = self._types.Schema(
             type=self._types.Type.OBJECT,
@@ -177,7 +175,7 @@ class GeminiClient:
                 response_mime_type="application/json",
                 response_schema=response_schema,
                 temperature=0.4,
-                max_output_tokens=512,
+                max_output_tokens=2048,
             ),
         )
 
@@ -301,7 +299,7 @@ class EcosystemNarrator:
     def _auto_select_client() -> LLMClientProtocol:
         api_key = os.getenv("GEMINI_API_KEY", "").strip()
         if api_key and api_key != "your_api_key_here":
-            model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+            model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
             logger.info("Using GeminiClient with model=%s", model)
             return GeminiClient(api_key=api_key, model=model)
         logger.warning("GEMINI_API_KEY not set — falling back to MockClient")

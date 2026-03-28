@@ -104,7 +104,6 @@ export default function App() {
   const [elapsed, setElapsed] = useState(null)
 
   const [activeTab, setActiveTab] = useState('Overview')
-  const [forceMock, setForceMock] = useState(false)
 
   // ── Scenario loader (no file upload needed) ──────────────────────────────
   const SCENARIOS = [
@@ -141,13 +140,9 @@ export default function App() {
     }
 
     try {
-      // First try with real Gemini API
-      let res = await fetch(`/api/scenario/${scenarioType}`)
-      if (res.status === 429 || res.status === 500) {
-        // Rate-limited or server error → auto-fallback to mock
-        console.warn(`Gemini rate limit hit (${res.status}), retrying with mock mode…`)
-        res = await fetch(`/api/scenario/${scenarioType}?force_mock=true`)
-      }
+      // Scenarios always use mock — they are procedurally generated demo data,
+      // not real sensor readings, so mock narration is the correct behaviour.
+      const res = await fetch(`/api/scenario/${scenarioType}?force_mock=true`)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.detail || `HTTP ${res.status}`)
@@ -155,16 +150,7 @@ export default function App() {
       const data = await res.json()
       _applyData(data)
     } catch (err) {
-      // Network error — try mock as last resort
-      try {
-        const res = await fetch(`/api/scenario/${scenarioType}?force_mock=true`)
-        if (res.ok) {
-          const data = await res.json()
-          _applyData(data)
-          return
-        }
-      } catch (_) { /* ignore */ }
-      setWorkerError(`Cannot reach API: ${err.message}. Make sure the backend is running.`)
+      setWorkerError(`Scenario failed: ${err.message}`)
       setWorkerState('error')
       setApiState('idle')
     }
@@ -218,20 +204,12 @@ export default function App() {
     setNarrationData(null)
 
     const start = performance.now()
-    const _post = (body) => fetch('/api/narrate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-
     try {
-      let res = await _post({ events, source_file: fileName, force_mock: forceMock })
-
-      // Auto-fallback on Gemini rate limit (429) or server error (500)
-      if ((res.status === 429 || res.status === 500) && !forceMock) {
-        console.warn('Gemini rate limit hit — falling back to mock mode')
-        res = await _post({ events, source_file: fileName, force_mock: true })
-      }
+      const res = await fetch('/api/narrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events, source_file: fileName }),
+      })
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -246,7 +224,7 @@ export default function App() {
       setApiError(err.message)
       setApiState('error')
     }
-  }, [events, fileName, forceMock])
+  }, [events, fileName])
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -340,9 +318,12 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-center text-gray-700">
-                  Physics-consistent procedural data · Gemini API narration
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-700">
+                    Physics-consistent procedural data · mock narration
+                  </p>
+                  <span className="text-xs text-gray-600 italic">Instant · no API quota used</span>
+                </div>
               </div>
             </div>
           </section>
@@ -386,16 +367,6 @@ export default function App() {
                   </>
                 )}
               </button>
-
-              <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={forceMock}
-                  onChange={(e) => setForceMock(e.target.checked)}
-                  className="rounded"
-                />
-                Force mock mode
-              </label>
 
               {apiState === 'error' && (
                 <span className="text-sm text-red-400">

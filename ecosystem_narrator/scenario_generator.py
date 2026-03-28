@@ -45,7 +45,7 @@ _IRRIGATION_THRESHOLD = 54.0  # moisture % below which irrigation fires
 _IRRIGATION_BOOST     = 3.5   # moisture % recovered per irrigated reading
 _BASE_DATE = datetime(2024, 6, 15, 6, 0, 0)
 _INTERVAL  = timedelta(minutes=30)
-_N_READINGS = 10  # readings per zone
+_N_READINGS = 24  # readings per zone (12-hour monitoring window)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -58,32 +58,36 @@ _PARAMS: dict[str, dict] = {
             {"start_moisture": 76.2, "decline_rate": 0.72, "health_start": 8.4},
             {"start_moisture": 73.8, "decline_rate": 0.65, "health_start": 8.1},
             {"start_moisture": 79.5, "decline_rate": 0.58, "health_start": 8.7},
+            {"start_moisture": 71.0, "decline_rate": 0.80, "health_start": 8.0},
         ],
-        "base_temp": 22.0, "temp_rise": 0.75, "rainfall": 0.0,
+        "base_temp": 22.0, "temp_rise": 0.55, "rainfall": 0.0,
     },
     "drought": {
         "zones": [
-            {"start_moisture": 72.0, "decline_rate": 2.18, "health_start": 8.0},
-            {"start_moisture": 68.0, "decline_rate": 2.05, "health_start": 7.7},
-            {"start_moisture": 76.5, "decline_rate": 1.28, "health_start": 8.4},
+            {"start_moisture": 72.0, "decline_rate": 1.45, "health_start": 8.0},
+            {"start_moisture": 68.0, "decline_rate": 1.35, "health_start": 7.7},
+            {"start_moisture": 76.5, "decline_rate": 0.92, "health_start": 8.4},
+            {"start_moisture": 65.0, "decline_rate": 1.60, "health_start": 7.5},
         ],
-        "base_temp": 24.5, "temp_rise": 0.88, "rainfall": 0.0,
+        "base_temp": 24.5, "temp_rise": 0.60, "rainfall": 0.0,
     },
     "crisis": {
         "zones": [
-            {"start_moisture": 61.0, "decline_rate": 3.42, "health_start": 7.3},
-            {"start_moisture": 58.5, "decline_rate": 3.65, "health_start": 7.0},
-            {"start_moisture": 63.0, "decline_rate": 3.10, "health_start": 7.5},
+            {"start_moisture": 65.0, "decline_rate": 1.80, "health_start": 7.3},
+            {"start_moisture": 62.0, "decline_rate": 1.95, "health_start": 7.0},
+            {"start_moisture": 67.0, "decline_rate": 1.65, "health_start": 7.5},
+            {"start_moisture": 60.0, "decline_rate": 2.10, "health_start": 6.8},
         ],
-        "base_temp": 29.0, "temp_rise": 0.95, "rainfall": 0.0,
+        "base_temp": 29.0, "temp_rise": 0.65, "rainfall": 0.0,
     },
     "recovery": {
         "zones": [
-            {"start_moisture": 48.0, "decline_rate": -2.20, "health_start": 6.8},  # negative = recovering
-            {"start_moisture": 46.5, "decline_rate": -1.95, "health_start": 6.5},
-            {"start_moisture": 50.5, "decline_rate": -1.75, "health_start": 7.0},
+            {"start_moisture": 48.0, "decline_rate": -1.10, "health_start": 6.8},  # negative = recovering
+            {"start_moisture": 46.5, "decline_rate": -0.98, "health_start": 6.5},
+            {"start_moisture": 50.5, "decline_rate": -0.88, "health_start": 7.0},
+            {"start_moisture": 44.0, "decline_rate": -1.25, "health_start": 6.3},
         ],
-        "base_temp": 27.0, "temp_rise": 0.40, "rainfall": 0.0,
+        "base_temp": 27.0, "temp_rise": 0.25, "rainfall": 0.0,
     },
 }
 
@@ -104,7 +108,7 @@ def generate_scenario(scenario: ScenarioType) -> EcosystemDataset:
         scenario: One of "normal", "drought", "crisis", "recovery"
 
     Returns:
-        EcosystemDataset with 30 events (3 zones × 10 readings)
+        EcosystemDataset with 96 events (4 zones × 24 readings, 12-hour window)
     """
     params = _PARAMS[scenario]
     zone_params = params["zones"]
@@ -114,7 +118,7 @@ def generate_scenario(scenario: ScenarioType) -> EcosystemDataset:
 
     events: list[EcosystemEvent] = []
 
-    zone_names = ["Zone-A", "Zone-B", "Zone-C"]
+    zone_names = ["Zone-A", "Zone-B", "Zone-C", "Zone-D"]
 
     for zone_idx, zname in enumerate(zone_names):
         zp = zone_params[zone_idx]

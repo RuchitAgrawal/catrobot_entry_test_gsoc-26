@@ -24,7 +24,7 @@ from .analyzer import analyze_dataset
 from .narrator import EcosystemNarrator, MockClient, load_csv
 from .scenario_generator import generate_scenario, SCENARIO_DESCRIPTIONS, ScenarioType
 
-load_dotenv()
+load_dotenv(override=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  App setup
@@ -87,7 +87,7 @@ async def health() -> HealthResponse:
         status="ok",
         version="0.1.0",
         gemini_configured=configured,
-        model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+        model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
     )
 
 
