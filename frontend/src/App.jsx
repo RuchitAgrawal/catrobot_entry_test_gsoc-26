@@ -253,7 +253,7 @@ export default function App() {
           </div>
           <div className="ml-auto flex items-center gap-3">
             <a
-              href="https://github.com"
+              href="https://github.com/RuchitAgrawal/catrobot_entry_test_gsoc-26"
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
@@ -280,9 +280,8 @@ export default function App() {
                   Upload Sensor Data
                 </h2>
                 <p className="text-gray-500 text-sm max-w-md mx-auto">
-                  Drop a CSV of your sensor grid readings. CSV parsing runs off the main
-                  thread via a <strong className="text-gray-400">Web Worker</strong> — the UI
-                  stays completely non-blocking.
+                  Drop a CSV of agricultural sensor readings to run the narration pipeline,
+                  or pick one of the scenario buttons below.
                 </p>
               </div>
               <UploadZone onFile={handleFile} isParsingWorker={workerState === 'parsing'} />

@@ -1,10 +1,8 @@
 /**
  * csvParser.worker.js
  *
- * Web Worker: parses CSV off the main thread using PapaParse.
- * This keeps the UI completely non-blocking during heavy CSV parsing —
- * a deliberate performance architecture choice that reduces server load
- * by sanitizing/compressing the payload before sending to FastAPI.
+ * Web Worker: parses and validates the CSV off the main thread so the UI
+ * stays responsive while processing large files.
  *
  * Message protocol:
  *   IN  { type: 'PARSE', csvText: string }

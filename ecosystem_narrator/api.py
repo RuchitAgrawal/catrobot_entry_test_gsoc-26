@@ -1,12 +1,15 @@
 """
-api.py — FastAPI backend wrapping the Ecosystem Narrator pipeline.
+api.py - FastAPI backend for the Ecosystem Narrator.
 
 Endpoints:
-  POST /api/narrate  — accepts ecosystem events JSON, returns NarrationOutput
-  GET  /api/analyze  — returns statistical insights only (no LLM call)
-  GET  /api/health   — health check
+  GET  /api/health          - health check + Gemini config status
+  POST /api/narrate         - JSON events -> NarrationOutput + AnalysisInsights
+  POST /api/analyze         - JSON events -> AnalysisInsights (no LLM call)
+  POST /api/upload-csv      - CSV file upload -> NarrationOutput
+  GET  /api/scenarios       - list available procedural scenario types
+  GET  /api/scenario/{type} - generate a scenario and run the full pipeline
 
-CORS is configured for the frontend dev server (localhost:5173).
+CORS is open for the Vite dev server on localhost:5173.
 """
 
 from __future__ import annotations
@@ -26,10 +29,6 @@ from .scenario_generator import generate_scenario, SCENARIO_DESCRIPTIONS, Scenar
 
 load_dotenv(override=True)
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  App setup
-# ─────────────────────────────────────────────────────────────────────────────
-
 app = FastAPI(
     title="Ecosystem Narrator API",
     description="Gemini-Powered Agricultural Ecosystem Narration System",
@@ -42,7 +41,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",   # Vite dev server
-        "http://localhost:3000",   # Alternative
+        "http://localhost:3000",
         "http://127.0.0.1:5173",
     ],
     allow_credentials=True,
@@ -51,9 +50,7 @@ app.add_middleware(
 )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Request/Response models
-# ─────────────────────────────────────────────────────────────────────────────
+# Request / response models
 
 class NarrateRequest(BaseModel):
     events: list[EcosystemEvent]
@@ -74,9 +71,7 @@ class HealthResponse(BaseModel):
     model: str
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Routes
-# ─────────────────────────────────────────────────────────────────────────────
+# Routes
 
 @app.get("/api/health", response_model=HealthResponse, tags=["system"])
 async def health() -> HealthResponse:
@@ -149,13 +144,12 @@ async def analyze(request: NarrateRequest) -> AnalysisInsights:
 @app.post("/api/upload-csv", response_model=NarrateResponse, tags=["narration"])
 async def upload_csv(file: UploadFile = File(...), force_mock: bool = False) -> NarrateResponse:
     """
-    Convenience endpoint: upload a CSV file directly and receive a narration.
+    Upload a CSV file directly and receive a narration.
     The CSV is parsed server-side using the same Pydantic validation.
     """
     if not file.filename or not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only .csv files are accepted")
 
-    # Write to a temp path
     import tempfile
     content = await file.read()
     with tempfile.NamedTemporaryFile(
@@ -195,9 +189,7 @@ async def upload_csv(file: UploadFile = File(...), force_mock: bool = False) -> 
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Scenario endpoints (no file upload needed — great for demos)
-# ─────────────────────────────────────────────────────────────────────────────
+# Scenario endpoints
 
 @app.get("/api/scenarios", tags=["scenarios"])
 async def list_scenarios() -> dict:

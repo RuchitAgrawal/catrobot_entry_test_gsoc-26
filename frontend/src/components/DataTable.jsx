@@ -43,6 +43,7 @@ function ZoneBadge({ zone }) {
     'Zone-A': 'bg-purple-500/20 text-purple-300',
     'Zone-B': 'bg-blue-500/20 text-blue-300',
     'Zone-C': 'bg-cyan-500/20 text-cyan-300',
+    'Zone-D': 'bg-orange-500/20 text-orange-300',
   }
   const cls = colorMap[zone] || 'bg-white/10 text-gray-300'
   return <span className={`badge ${cls}`}>{zone}</span>

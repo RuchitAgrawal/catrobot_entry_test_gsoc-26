@@ -1,11 +1,11 @@
 """
-models.py — Pydantic v2 schemas for the Ecosystem Narrator.
+models.py - Pydantic v2 schemas for the Ecosystem Narrator.
 
-Defines strict data contracts for:
-  - EcosystemEvent       : a single sensor reading from the agro grid
-  - EcosystemDataset     : collection of events + metadata
-  - AnalysisInsights     : statistical pre-processing results
-  - NarrationOutput      : structured LLM response (2–4 sentences enforced)
+Data contracts for:
+  EcosystemEvent   - single sensor reading from the agro grid
+  EcosystemDataset - collection of events + computed metadata
+  AnalysisInsights - results of the statistical pre-processing pass
+  NarrationOutput  - structured LLM response (2-4 sentences enforced)
 """
 
 from __future__ import annotations
@@ -16,9 +16,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Raw sensor event
-# ─────────────────────────────────────────────────────────────────────────────
+# Raw sensor event
 
 class EcosystemEvent(BaseModel):
     """A single timestamped sensor reading from the agricultural grid."""
@@ -26,7 +24,7 @@ class EcosystemEvent(BaseModel):
     timestamp: datetime
     sensor_zone: Annotated[str, Field(description="Named grid zone, e.g. Zone-A")]
     soil_moisture_pct: Annotated[
-        float, Field(ge=0.0, le=100.0, description="Soil moisture as a percentage 0–100")
+        float, Field(ge=0.0, le=100.0, description="Soil moisture as a percentage 0-100")
     ]
     drone_active: bool
     crop_health_index: Annotated[
@@ -44,9 +42,7 @@ class EcosystemEvent(BaseModel):
         return v.strip()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Dataset container
-# ─────────────────────────────────────────────────────────────────────────────
+# Dataset container
 
 class EcosystemDataset(BaseModel):
     """Container for a collection of ecosystem events with metadata."""
@@ -66,9 +62,7 @@ class EcosystemDataset(BaseModel):
         return round(delta.total_seconds() / 3600, 2)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Statistical insights (pre-processed, injected into prompt)
-# ─────────────────────────────────────────────────────────────────────────────
+# Statistical insights (pre-processed, ready for prompt injection)
 
 class ZoneAnalysis(BaseModel):
     """Per-zone statistical summary."""
@@ -100,9 +94,9 @@ class AnalysisInsights(BaseModel):
     total_irrigation_events: int
     critical_zones: list[str]            # zones with moisture < 55%
     global_anomalies: list[str]          # cross-zone observations
-    summary_bullets: list[str]           # human-readable bullet points for prompt
+    summary_bullets: list[str]           # bullet points injected into the LLM prompt
 
-    # ── Severity-adaptive tone (data-driven, not user-selected) ──────────────
+    # Severity-adaptive tone derived from the composite severity score
     severity_score: Annotated[
         float,
         Field(default=0.0, ge=0.0, le=1.0,
@@ -114,25 +108,23 @@ class AnalysisInsights(BaseModel):
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  LLM structured output
-# ─────────────────────────────────────────────────────────────────────────────
+# LLM structured output
 
 class NarrationOutput(BaseModel):
     """
     Structured output enforced from the LLM response.
-    sentence_count is validated to be exactly 2–4.
+    sentence_count is validated against the actual narration string.
     """
 
     sentence_count: Annotated[
         int,
-        Field(ge=2, le=4, description="Number of sentences in the narration (must be 2–4)"),
+        Field(ge=2, le=4, description="Number of sentences in the narration (must be 2-4)"),
     ]
     narration: Annotated[
         str,
         Field(
             min_length=40,
-            description="2–4 sentence ecosystem summary produced by the narrator",
+            description="2-4 sentence ecosystem summary produced by the narrator",
         ),
     ]
     anomalies_detected: list[str] = Field(
@@ -141,17 +133,17 @@ class NarrationOutput(BaseModel):
     )
     confidence: Annotated[
         float,
-        Field(ge=0.0, le=1.0, description="Model confidence in the narration (0–1)"),
+        Field(ge=0.0, le=1.0, description="Model confidence in the narration (0-1)"),
     ] = 1.0
 
     @model_validator(mode="after")
     def validate_sentence_count_matches_narration(self) -> "NarrationOutput":
         """
-        Cross-validates that sentence_count actually matches the number of
-        sentences in the narration string (a deterministic correctness check).
+        Cross-validates sentence_count against the actual sentence count
+        in the narration string. Auto-corrects if they diverge.
         """
         import re
-        # Split on . ! ? followed by space or end-of-string
+        # Split on . ! ? followed by whitespace or end-of-string
         sentences = [
             s.strip()
             for s in re.split(r"(?<=[.!?])\s+", self.narration.strip())
@@ -159,6 +151,6 @@ class NarrationOutput(BaseModel):
         ]
         actual = len(sentences)
         if actual != self.sentence_count:
-            # Auto-correct the count rather than raising — keeps things robust
+            # sentence_count drifts from the actual count; fix it rather than raise
             object.__setattr__(self, "sentence_count", actual)
         return self

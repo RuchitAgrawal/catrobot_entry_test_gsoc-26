@@ -1,24 +1,23 @@
-# Prompt Engineering Documentation
+# Prompt Engineering Notes
 
 ## Overview
 
-This document describes the exact prompt template used by the Ecosystem Narrator,
-the design rationale behind each decision, and why this approach produces reliable,
-hallucination-resistant narrations.
+This document explains the prompt template used by the Ecosystem Narrator and the reasoning
+behind each design decision.
 
 ---
 
 ## Core Design Principle: Pre-Computed Context
 
-The most common failure mode of LLM summarization is **numeric hallucination** — the model
-inventing plausible-sounding statistics that don't match the source data. To eliminate this,
-we follow a two-step pipeline:
+A common failure mode of LLM summarization is **numeric hallucination** — the model
+inventing plausible-sounding statistics that don't match the source data. To reduce this,
+the pipeline uses a two-step approach:
 
 1. **`analyzer.py`** runs pure-Python statistics on the dataset _before_ any API call
 2. The computed insights are injected into the prompt as **ground truth bullets**
-3. The model is explicitly instructed _not to invent numbers_
+3. The model is explicitly told not to invent numbers outside of what's provided
 
-This means the LLM is acting as a **language layer**, not a math layer.
+The LLM acts as a **language layer** over pre-computed facts, not a math layer.
 
 ---
 
@@ -27,6 +26,9 @@ This means the LLM is acting as a **language layer**, not a math layer.
 ```
 You are an expert agricultural ecosystem analyst monitoring a smart sensor grid.
 Your task is to write a concise, accurate narration of today's ecosystem health.
+
+## WRITING REGISTER (auto-derived from severity score={severity_score:.2f}):
+{tone_instruction}
 
 ## STATISTICAL INSIGHTS (pre-computed — treat these as ground truth):
 {bullets}
@@ -63,27 +65,41 @@ Return ONLY a valid JSON object in this exact format:
 |---|---|---|
 | `{bullets}` | `analyzer.py → AnalysisInsights.summary_bullets` | Pre-computed bullet list of moisture trends, drone activity, anomaly flags |
 | `{snapshot}` | Last 5 events from `EcosystemDataset.events` | Raw tabular snapshot of recent readings |
-| `{min_s}` | `EcosystemNarrator.MIN_SENTENCES` (= 2) | Lower bound |
-| `{max_s}` | `EcosystemNarrator.MAX_SENTENCES` (= 4) | Upper bound |
+| `{tone_instruction}` | `TONE_INSTRUCTIONS[tone_register]` in `narrator.py` | Writing register matched to severity score |
+| `{severity_score}` | `AnalysisInsights.severity_score` | Composite score from analyzer |
+| `{min_s}` / `{max_s}` | `EcosystemNarrator.MIN_SENTENCES` / `MAX_SENTENCES` | Sentence count bounds |
 
 ---
 
-## Enforcement Stack (Why 2–4 Sentences is Guaranteed)
+## Tone Register
 
-A naive prompt asking for "2-4 sentences" will occasionally produce 1 or 5. We use
-three layers of enforcement:
+Rather than letting the user pick a style, the tone is derived automatically from the
+severity score computed in `analyzer.py`. Three registers are available:
 
-### Layer 1 — Prompt Instruction
-The prompt explicitly states "EXACTLY 2–4 sentences" twice and includes it as a numbered rule.
+- **routine** (score < 0.30) — calm monitoring log, past tense
+- **advisory** (0.30–0.65) — elevated field advisory, present tense, measured urgency
+- **emergency** (≥ 0.65) — urgent report, direct, no filler
 
-### Layer 2 — Structured Output Schema
-We use the `google-genai` SDK's `response_schema` feature with `response_mime_type="application/json"`.
-This forces the model to output a valid JSON object matching the `NarrationOutput` schema —
-it cannot return free-form text.
+This means the same prompt template produces different output depending on actual data
+conditions, without any manual configuration.
 
-### Layer 3 — Pydantic Validator
-`NarrationOutput` has a `@model_validator` that counts actual sentences in the narration
-string using regex splitting on `.!?` and auto-corrects `sentence_count` if it drifts.
+---
+
+## Enforcing 2–4 Sentences
+
+A naive prompt instruction will occasionally produce 1 or 5 sentences. Three layers
+prevent this:
+
+**Layer 1 — Prompt instruction.** The prompt states "EXACTLY 2–4 sentences" twice and
+includes it as a numbered rule.
+
+**Layer 2 — Structured output schema.** The `google-genai` SDK's `response_schema` feature
+with `response_mime_type="application/json"` forces a valid JSON object matching the
+`NarrationOutput` schema. The model cannot return free-form text.
+
+**Layer 3 — Pydantic validator.** `NarrationOutput` has a `@model_validator` that counts
+actual sentences using regex splitting on `.!?` and auto-corrects `sentence_count` if it
+drifts from the real count.
 
 ---
 
@@ -114,16 +130,3 @@ string using regex splitting on `.!?` and auto-corrects `sentence_count` if it d
   "confidence": 0.93
 }
 ```
-
----
-
-## Why This Design Wins Over a Naive Implementation
-
-| Naive Approach | This Implementation |
-|---|---|
-| Raw CSV string dumped into prompt | Statistical insights pre-computed, injected as ground truth |
-| "Write 2-4 sentences" in system prompt | JSON schema enforcement + Pydantic validator |
-| `requirements.txt` | `pyproject.toml` with `uv` |
-| Single script | Modular package: models → analyzer → narrator → cli/api |
-| No fallback | MockClient with color-coded terminal warning |
-| Script only | FastAPI backend + React dashboard + Web Worker |

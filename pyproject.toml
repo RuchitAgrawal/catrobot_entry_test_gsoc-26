@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Gemini-Powered Agricultural Ecosystem Narration System"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "Ruchit", email = "ruchit@example.com" }]
+authors = [{ name = "Ruchit Agrawal", email = "rragrawal16@gmail.com" }]
 license = { text = "MIT" }
 
 dependencies = [

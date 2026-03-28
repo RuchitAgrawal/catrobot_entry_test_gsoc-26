@@ -1,10 +1,10 @@
 """
-ecosystem_narrator — Gemini-Powered Agricultural Ecosystem Narration System.
+ecosystem_narrator — Agricultural Ecosystem Narration System.
 
-Produces 2–4 sentence natural-language summaries of sensor grid data
-with statistical pre-processing, structured LLM output enforcement,
-and a bulletproof mock mode.
+Takes sensor grid data (CSV or JSON events), runs statistical
+pre-processing, then calls the Gemini API to produce a short
+natural-language narration of ecosystem health.
 """
 
 __version__ = "0.1.0"
-__author__ = "Ruchit"
+__author__ = "Ruchit Agrawal"

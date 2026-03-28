@@ -1,16 +1,16 @@
 """
-cli.py — Rich-powered CLI for Ecosystem Narrator.
+cli.py - Rich-powered CLI for Ecosystem Narrator.
 
-Commands / flags:
-  --data PATH              Run pipeline on a CSV file
+Flags:
+  --data PATH               Run pipeline on a CSV file
   --generate-scenario TYPE  Procedurally generate scenario data (no CSV needed)
-  --watch                  Re-narrate whenever the CSV file changes (live monitor)
-  --export-report PATH     Export a standalone HTML report with SVG charts
-  --mock                   Force mock mode
-  --output PATH            Save narration JSON to file
-  --no-table               Skip raw data table
+  --watch                   Re-narrate whenever the CSV file changes
+  --export-report PATH      Export a standalone HTML report with SVG charts
+  --mock                    Force mock mode
+  --output PATH             Save narration JSON to a file
+  --no-table                Skip printing the raw data table
 
-Scenarios: normal | drought | crisis | recovery
+Scenario types: normal | drought | crisis | recovery
 """
 
 from __future__ import annotations
@@ -45,17 +45,14 @@ from .scenario_generator import (
 
 console = Console()
 
-# Tone-register display config
 TONE_DISPLAY = {
-    "routine":   ("✅ Routine Monitoring Log",   "green"),
-    "advisory":  ("⚠  Field Advisory",          "yellow"),
-    "emergency": ("🚨 Emergency Situation Report","bold red"),
+    "routine":   ("✅ Routine Monitoring Log",    "green"),
+    "advisory":  ("⚠  Field Advisory",           "yellow"),
+    "emergency": ("🚨 Emergency Situation Report", "bold red"),
 }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Rich rendering helpers
-# ─────────────────────────────────────────────────────────────────────────────
+# Rendering helpers
 
 def render_header() -> None:
     console.print()
@@ -116,7 +113,6 @@ def render_dataset_table(dataset: EcosystemDataset) -> None:
 
 def render_insights(zone_analyses: list[ZoneAnalysis], global_anomalies: list[str],
                     severity_score: float, tone_register: str) -> None:
-    # Tone register badge
     tone_label, tone_style = TONE_DISPLAY.get(tone_register, ("Monitoring", "dim"))
     console.print(Rule(f"[{tone_style}]{tone_label}[/{tone_style}]  ·  "
                        f"[dim]severity={severity_score:.2f}[/dim]"))
@@ -202,9 +198,7 @@ def render_narration(output, elapsed: float) -> None:
     console.print()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Single-shot pipeline (shared between normal and watch mode)
-# ─────────────────────────────────────────────────────────────────────────────
+# Pipeline runner (used by both single-shot and watch mode)
 
 def run_pipeline(
     dataset: EcosystemDataset,
@@ -237,7 +231,6 @@ def run_pipeline(
     )
     render_narration(output, elapsed)
 
-    # HTML report
     if export_report:
         from .report_generator import save_report
         saved = save_report(
@@ -248,7 +241,6 @@ def run_pipeline(
         console.print(f"[green]✓[/green] HTML report saved to [bold]{saved}[/bold]")
         console.print()
 
-    # JSON output
     if output_path:
         result_data = {
             "narration_output": output.model_dump(mode="json"),
@@ -262,9 +254,7 @@ def run_pipeline(
         console.print()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Watch mode (async file polling with delta re-narration)
-# ─────────────────────────────────────────────────────────────────────────────
+# Watch mode
 
 async def _watch_async(
     data_path: Path,
@@ -290,7 +280,6 @@ async def _watch_async(
         )
     )
 
-    # Run once immediately
     last_hash = None
     try:
         dataset = load_csv(data_path)
@@ -323,9 +312,7 @@ def _file_hash(path: Path) -> str:
     return hashlib.md5(path.read_bytes()).hexdigest()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  CLI entry point
-# ─────────────────────────────────────────────────────────────────────────────
+# CLI entry point
 
 def app() -> None:
     parser = argparse.ArgumentParser(
@@ -363,7 +350,6 @@ def app() -> None:
 
     args = parser.parse_args()
 
-    # ── Validate args ─────────────────────────────────────────────────────────
     if args.data is None and args.generate_scenario is None:
         parser.error("Provide either --data PATH or --generate-scenario SCENARIO")
 
@@ -372,7 +358,7 @@ def app() -> None:
 
     render_header()
 
-    # ── Load or generate dataset ──────────────────────────────────────────────
+    # Load or generate dataset
     if args.generate_scenario:
         scenario: ScenarioType = args.generate_scenario  # type: ignore[assignment]
         console.print(
@@ -383,7 +369,6 @@ def app() -> None:
                 padding=(1, 3),
             )
         )
-        # Save generated CSV for reproducibility
         csv_path = Path(f"data/generated_{scenario}.csv")
         scenario_to_csv(scenario, output_path=csv_path)
         console.print(f"[green]✓[/green] Generated CSV saved to [bold]{csv_path}[/bold]\n")
@@ -409,11 +394,9 @@ def app() -> None:
         f"across [bold]{dataset.time_range_hours:.1f}h[/bold] window\n"
     )
 
-    # ── Build narrator ────────────────────────────────────────────────────────
     client = MockClient() if args.mock else None
     narrator = EcosystemNarrator(client=client)
 
-    # ── Watch mode ────────────────────────────────────────────────────────────
     if args.watch:
         try:
             asyncio.run(
@@ -423,7 +406,6 @@ def app() -> None:
             console.print("\n[dim]Watch mode stopped.[/dim]")
         return
 
-    # ── Single-shot mode ──────────────────────────────────────────────────────
     if not args.no_table:
         render_dataset_table(dataset)
 

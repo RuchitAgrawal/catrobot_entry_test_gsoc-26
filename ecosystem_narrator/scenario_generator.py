@@ -1,12 +1,14 @@
 """
-scenario_generator.py — Procedural Ecosystem Scenario Generator.
+scenario_generator.py - Procedural dataset generator for demo scenarios.
 
-Generates realistic, physics-consistent CSV datasets for 4 scenario types.
-Each scenario has internally consistent causal chains:
+Generates physics-consistent CSV datasets for four scenario types:
+  normal   - stable day, no interventions needed
+  drought  - progressive moisture stress in two zones
+  crisis   - rapid multi-zone failure, maximum intervention
+  recovery - moisture rising after an earlier crisis event
+
+Moisture, drone activity, and irrigation are causally linked:
   moisture decays → drones deploy → irrigation fires → moisture recovers.
-
-This is architecturally superior to hardcoded presets because
-the data has real causal relationships, not just static snapshots.
 """
 
 from __future__ import annotations
@@ -19,10 +21,6 @@ from typing import Literal
 
 from .models import EcosystemDataset, EcosystemEvent
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Scenario types
-# ─────────────────────────────────────────────────────────────────────────────
-
 ScenarioType = Literal["normal", "drought", "crisis", "recovery"]
 
 SCENARIO_DESCRIPTIONS = {
@@ -32,26 +30,15 @@ SCENARIO_DESCRIPTIONS = {
     "recovery": "Post-intervention — moisture recovering after an earlier crisis event",
 }
 
-# Zone configurations: (name, start_moisture, health_start)
-_ZONES = [
-    ("Zone-A", 0, 0),
-    ("Zone-B", 1, 0),
-    ("Zone-C", 2, 0),
-]
-
 # Calibration constants
-_DRONE_THRESHOLD     = 63.0   # moisture % below which drones deploy
-_IRRIGATION_THRESHOLD = 54.0  # moisture % below which irrigation fires
-_IRRIGATION_BOOST     = 3.5   # moisture % recovered per irrigated reading
-_BASE_DATE = datetime(2024, 6, 15, 6, 0, 0)
-_INTERVAL  = timedelta(minutes=30)
-_N_READINGS = 24  # readings per zone (12-hour monitoring window)
+_DRONE_THRESHOLD      = 63.0   # moisture % below which drones deploy
+_IRRIGATION_THRESHOLD = 54.0   # moisture % below which irrigation fires
+_IRRIGATION_BOOST     = 3.5    # moisture % recovered per irrigated reading
+_BASE_DATE  = datetime(2024, 6, 15, 6, 0, 0)
+_INTERVAL   = timedelta(minutes=30)
+_N_READINGS = 24               # readings per zone (12-hour window)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Per-scenario physics parameters
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Per-scenario physics parameters
 _PARAMS: dict[str, dict] = {
     "normal": {
         "zones": [
@@ -82,7 +69,7 @@ _PARAMS: dict[str, dict] = {
     },
     "recovery": {
         "zones": [
-            {"start_moisture": 48.0, "decline_rate": -1.10, "health_start": 6.8},  # negative = recovering
+            {"start_moisture": 48.0, "decline_rate": -1.10, "health_start": 6.8},
             {"start_moisture": 46.5, "decline_rate": -0.98, "health_start": 6.5},
             {"start_moisture": 50.5, "decline_rate": -0.88, "health_start": 7.0},
             {"start_moisture": 44.0, "decline_rate": -1.25, "health_start": 6.3},
@@ -92,17 +79,9 @@ _PARAMS: dict[str, dict] = {
 }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Generator
-# ─────────────────────────────────────────────────────────────────────────────
-
 def generate_scenario(scenario: ScenarioType) -> EcosystemDataset:
     """
     Procedurally generate a physics-consistent EcosystemDataset.
-
-    Each scenario models a distinct agricultural condition with causally
-    linked sensor readings — drones deploy when moisture drops, irrigation
-    fires when moisture hits critical, and recovery follows intervention.
 
     Args:
         scenario: One of "normal", "drought", "crisis", "recovery"
@@ -117,26 +96,23 @@ def generate_scenario(scenario: ScenarioType) -> EcosystemDataset:
     rainfall = params["rainfall"]
 
     events: list[EcosystemEvent] = []
-
     zone_names = ["Zone-A", "Zone-B", "Zone-C", "Zone-D"]
 
     for zone_idx, zname in enumerate(zone_names):
         zp = zone_params[zone_idx]
         moisture = zp["start_moisture"]
         health = zp["health_start"]
-        decline = zp["decline_rate"]  # per interval (-ve = recovering/rising)
+        decline = zp["decline_rate"]  # negative = recovering/rising
         irrigation_active_prev = False
 
         for reading_idx in range(_N_READINGS):
             timestamp = _BASE_DATE + _INTERVAL * reading_idx
             temp = round(base_temp + temp_rise * reading_idx, 1)
 
-            # Causal physics
             drone_active = moisture < _DRONE_THRESHOLD
             irrigation_triggered = moisture < _IRRIGATION_THRESHOLD
 
-            # Irrigation partially offset the decline in next reading
-            # We apply boost BEFORE the decline for the current reading if prev irrigated
+            # Irrigation partially offsets decline if it was active last reading
             if irrigation_active_prev and scenario in ("drought", "crisis"):
                 moisture = min(moisture + _IRRIGATION_BOOST, 100.0)
 
@@ -154,10 +130,8 @@ def generate_scenario(scenario: ScenarioType) -> EcosystemDataset:
                 rainfall_mm=rainfall,
             ))
 
-            # Advance for next reading
+            # Advance state for next reading
             if scenario == "recovery":
-                # In recovery, irrigation is heavily active (it was triggered before our window)
-                # moisture rises, health improves
                 moisture = min(moisture - decline, 95.0)  # decline is negative → adds
                 health = min(health + 0.08, 10.0)
             else:
@@ -174,10 +148,6 @@ def generate_scenario(scenario: ScenarioType) -> EcosystemDataset:
         source_file=f"generated:{scenario}",
     )
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  CSV export helper
-# ─────────────────────────────────────────────────────────────────────────────
 
 def scenario_to_csv(scenario: ScenarioType, output_path: Path | None = None) -> str:
     """

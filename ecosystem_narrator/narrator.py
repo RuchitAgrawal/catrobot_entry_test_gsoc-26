@@ -1,14 +1,11 @@
 """
-narrator.py — EcosystemNarrator: LLM integration with bulletproof mock fallback.
+narrator.py - Orchestrates the full narration pipeline.
 
-Architecture:
-  LLMClientProtocol    — interface (Protocol) both clients implement
-  GeminiClient         — real client using google-genai SDK with JSON schema enforcement
-  MockClient           — instant hardcoded response; prints color-coded warning
-  EcosystemNarrator    — orchestrates dataset → analysis → client → NarrationOutput
-
-The entire chain is deterministic: the 2–4 sentence constraint is enforced
-at the schema level, not just hoped for in the prompt.
+Classes:
+  LLMClientProtocol  - interface both clients implement
+  GeminiClient       - real client via google-genai SDK with JSON schema enforcement
+  MockClient         - returns a hardcoded response; prints a warning banner
+  EcosystemNarrator  - dataset → analysis → LLM call → NarrationOutput
 """
 
 from __future__ import annotations
@@ -39,14 +36,7 @@ load_dotenv(override=True)
 logger = logging.getLogger(__name__)
 console = Console()
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Tone-register instructions (injected based on auto-derived severity score)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Instead of a user-selected style dropdown, tone is derived from
-# the statistical severity score computed by analyzer.py.
-# The LLM adapts its language register based on actual data conditions.
-
+# Tone instructions injected based on the severity score computed by analyzer.py
 TONE_INSTRUCTIONS: dict[str, str] = {
     "routine": (
         "Write in a calm, data-forward monitoring style. Use past tense. "
@@ -100,9 +90,6 @@ Return ONLY a valid JSON object in this exact format:
 }}
 """
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  LLM Client Protocol
-# ─────────────────────────────────────────────────────────────────────────────
 
 @runtime_checkable
 class LLMClientProtocol(Protocol):
@@ -112,10 +99,6 @@ class LLMClientProtocol(Protocol):
         """Send prompt, return a validated NarrationOutput."""
         ...
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Gemini Client (real)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class GeminiClient:
     """
@@ -143,7 +126,6 @@ class GeminiClient:
 
     def generate(self, prompt: str) -> NarrationOutput:
         """Call Gemini with structured JSON output enforced via response_schema."""
-        # Build the response schema as a Pydantic model compatible dict
         response_schema = self._types.Schema(
             type=self._types.Type.OBJECT,
             properties={
@@ -192,16 +174,10 @@ class GeminiClient:
         return NarrationOutput(**data)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Mock Client
-# ─────────────────────────────────────────────────────────────────────────────
-
 class MockClient:
     """
-    Hardcoded mock that returns a valid NarrationOutput instantly.
-
-    Prints a bold red warning banner so it's impossible to miss in the
-    terminal that this is a mock response.
+    Returns a hardcoded NarrationOutput instantly.
+    Prints a bold warning so it's obvious in the terminal that this is mock output.
     """
 
     _MOCK_OUTPUT = NarrationOutput(
@@ -249,10 +225,6 @@ class MockClient:
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Data loader
-# ─────────────────────────────────────────────────────────────────────────────
-
 def load_csv(path: Path) -> EcosystemDataset:
     """Parse and validate a CSV file into an EcosystemDataset."""
     raw = path.read_text(encoding="utf-8")
@@ -274,17 +246,13 @@ def load_csv(path: Path) -> EcosystemDataset:
     return EcosystemDataset(events=events, source_file=str(path))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Main orchestrator
-# ─────────────────────────────────────────────────────────────────────────────
-
 class EcosystemNarrator:
     """
     Orchestrates the full pipeline:
-      load → validate → analyze → enrich prompt → LLM → validate output
+      load → validate → analyze → build prompt → LLM call → validate output
 
-    The client is injected via constructor (dependency injection), enabling
-    easy testing with MockClient or any future alternative LLM backend.
+    The client is injected via the constructor, making it easy to swap in
+    MockClient for tests or any future alternative LLM backend.
     """
 
     MIN_SENTENCES = 2
@@ -323,7 +291,7 @@ class EcosystemNarrator:
     ) -> str:
         bullet_str = "\n".join(f"• {b}" for b in insights.summary_bullets)
 
-        # Last 5 events snapshot as compact JSON
+        # Last 5 events as a compact snapshot
         recent = sorted(dataset.events, key=lambda e: e.timestamp)[-5:]
         snapshot_lines = []
         for e in recent:
@@ -336,7 +304,6 @@ class EcosystemNarrator:
             )
         snapshot_str = "\n".join(snapshot_lines)
 
-        # Tone register is auto-derived from severity score — no user input needed
         tone_register = insights.tone_register
         tone_instruction = TONE_INSTRUCTIONS.get(tone_register, TONE_INSTRUCTIONS["routine"])
 

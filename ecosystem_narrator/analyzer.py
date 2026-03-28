@@ -1,17 +1,11 @@
 """
-analyzer.py — Statistical Pre-Processing Engine.
+analyzer.py - Statistical pre-processing for the ecosystem narration pipeline.
 
-Computes all mathematical insights from the ecosystem dataset BEFORE
-sending anything to the Gemini API. This prevents the LLM from
-hallucinating numeric trends and grounds the narration in real data.
+Computes all mathematical insights from the dataset before any LLM call,
+so the narration is grounded in real numbers rather than the model's guesses.
 
-Key outputs:
-  - Per-zone moisture trend & drop rate (per hour)
-  - Drone deployment spike detection
-  - Crop health delta and anomaly flags
-  - Irrigation event correlation
-  - Cross-zone global anomaly list
-  - Human-readable summary bullet points for prompt injection
+Outputs per-zone moisture trends, drone spike detection, crop health deltas,
+irrigation correlation, cross-zone anomalies, and prompt-ready bullet points.
 """
 
 from __future__ import annotations
@@ -27,20 +21,13 @@ from .models import (
 )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Thresholds (tunable constants)
-# ─────────────────────────────────────────────────────────────────────────────
+# Thresholds - adjust these if the sensor calibration changes
+MOISTURE_CRITICAL_PCT = 55.0
+MOISTURE_DECLINING_THRESHOLD = -5.0
+MOISTURE_RECOVERING_THRESHOLD = 2.0
+DRONE_SPIKE_THRESHOLD = 3
+HEALTH_INDEX_WARNING = 7.0
 
-MOISTURE_CRITICAL_PCT = 55.0        # Below this → critical zone
-MOISTURE_DECLINING_THRESHOLD = -5.0 # Drop more than 5% over window → declining
-MOISTURE_RECOVERING_THRESHOLD = 2.0 # Rise more than 2% → recovering
-DRONE_SPIKE_THRESHOLD = 3           # More than 3 active events in a zone → spike
-HEALTH_INDEX_WARNING = 7.0          # Below this → crop health warning
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Core analysis function
-# ─────────────────────────────────────────────────────────────────────────────
 
 def analyze_dataset(dataset: EcosystemDataset) -> AnalysisInsights:
     """
@@ -50,7 +37,7 @@ def analyze_dataset(dataset: EcosystemDataset) -> AnalysisInsights:
         dataset: validated EcosystemDataset instance
 
     Returns:
-        AnalysisInsights: all pre-computed statistics ready for prompt injection
+        AnalysisInsights with all pre-computed statistics ready for prompt injection
     """
     events_by_zone: dict[str, list[EcosystemEvent]] = defaultdict(list)
     for event in sorted(dataset.events, key=lambda e: e.timestamp):
@@ -70,7 +57,7 @@ def analyze_dataset(dataset: EcosystemDataset) -> AnalysisInsights:
         if za.min_moisture_pct < MOISTURE_CRITICAL_PCT:
             critical_zones.append(zone)
 
-    # ── Global trend ──────────────────────────────────────────────────────────
+    # Overall trend from mean delta across zones
     all_deltas = [za.moisture_delta_pct for za in zone_analyses]
     mean_delta = statistics.mean(all_deltas) if all_deltas else 0.0
 
@@ -81,7 +68,7 @@ def analyze_dataset(dataset: EcosystemDataset) -> AnalysisInsights:
     else:
         overall_trend = "stable"
 
-    # ── Global anomalies ──────────────────────────────────────────────────────
+    # Build global anomaly list
     if critical_zones:
         global_anomalies.append(
             f"Critical moisture levels (<{MOISTURE_CRITICAL_PCT}%) detected in: "
@@ -111,7 +98,6 @@ def analyze_dataset(dataset: EcosystemDataset) -> AnalysisInsights:
             "ecosystem responded to moisture stress"
         )
 
-    # ── Summary bullets (injected raw into the LLM prompt) ───────────────────
     summary_bullets = _build_summary_bullets(
         zone_analyses=zone_analyses,
         overall_trend=overall_trend,
@@ -122,7 +108,6 @@ def analyze_dataset(dataset: EcosystemDataset) -> AnalysisInsights:
         analysis_window_hours=dataset.time_range_hours,
     )
 
-    # ── Severity score & tone register (data-driven, not user-selected) ───────
     severity_score, tone_register = _compute_severity(
         zone_analyses=zone_analyses,
         critical_zones=critical_zones,
@@ -146,10 +131,6 @@ def analyze_dataset(dataset: EcosystemDataset) -> AnalysisInsights:
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Per-zone helpers
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _analyze_zone(zone: str, events: list[EcosystemEvent]) -> ZoneAnalysis:
     """Compute statistics for a single sensor zone (events must be time-sorted)."""
 
@@ -160,14 +141,13 @@ def _analyze_zone(zone: str, events: list[EcosystemEvent]) -> ZoneAnalysis:
 
     moisture_start = moistures[0]
     moisture_end = moistures[-1]
-    moisture_delta = moisture_end - moisture_start  # negative = dropped
+    moisture_delta = moisture_end - moisture_start
 
-    # Time window in hours for rate calculation
     if len(events) > 1:
         time_delta_hours = (
             events[-1].timestamp - events[0].timestamp
         ).total_seconds() / 3600
-        time_delta_hours = max(time_delta_hours, 0.001)  # avoid div by zero
+        time_delta_hours = max(time_delta_hours, 0.001)
     else:
         time_delta_hours = 1.0
 
@@ -265,17 +245,12 @@ def _build_summary_bullets(
             "ecosystem attempting to self-stabilize"
         )
 
-    # Per-zone anomalies
     for za in zone_analyses:
         for flag in za.anomaly_flags:
             bullets.append(f"  [{za.zone}] {flag}")
 
     return bullets
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Severity scoring (data-driven tone derivation)
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _compute_severity(
     zone_analyses: list,
@@ -285,26 +260,25 @@ def _compute_severity(
 ) -> tuple[float, str]:
     """
     Compute a composite severity score [0.0, 1.0] from the statistical insights.
-    Derives the appropriate tone register automatically — no user input needed.
+    Tone register is derived automatically — no user input required.
 
     Formula:
       severity = 0.50 × critical_zone_ratio
-               + 0.30 × normalized_avg_drop_rate   (capped at 5%/h = 1.0)
-               + 0.20 × drone_intensity             (deployments / total events)
+               + 0.30 × normalized_avg_drop_rate  (capped at 5%/h = 1.0)
+               + 0.20 × drone_intensity            (deployments / total events)
 
     Tone mapping:
-      < 0.30  →  "routine"   (calm monitoring log)
-      0.30–0.65 → "advisory" (elevated field advisory)
-      ≥ 0.65  →  "emergency" (urgent emergency report)
+      < 0.30   →  "routine"   (calm monitoring log)
+      0.30–0.65 → "advisory"  (elevated field advisory)
+      ≥ 0.65   →  "emergency" (urgent emergency report)
     """
     n_zones = max(len(zone_analyses), 1)
     critical_ratio = len(critical_zones) / n_zones
 
-    # Average absolute moisture drop rate across all zones
     avg_drop_rate = statistics.mean(
         abs(za.moisture_drop_rate_per_hour) for za in zone_analyses
     ) if zone_analyses else 0.0
-    normalized_drop = min(avg_drop_rate / 5.0, 1.0)  # 5%/h = max
+    normalized_drop = min(avg_drop_rate / 5.0, 1.0)
 
     drone_intensity = min(all_drone_deployments / max(total_events, 1) * 3, 1.0)
 
