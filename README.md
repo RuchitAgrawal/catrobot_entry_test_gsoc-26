@@ -179,9 +179,3 @@ correlation, and a composite severity score that determines tone register.
 The prompt is built from the pre-computed bullets and sent to Gemini with a
 `response_schema` that enforces valid JSON. A `@model_validator` in `NarrationOutput`
 catches any sentence-count drift and corrects it automatically.
-
----
-
-## License
-
-MIT

@@ -5,7 +5,6 @@ description = "Gemini-Powered Agricultural Ecosystem Narration System"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Ruchit Agrawal", email = "rragrawal16@gmail.com" }]
-license = { text = "MIT" }
 
 dependencies = [
     "google-genai>=1.0",
